@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS authorised (
+    id INTEGER PRIMARY KEY NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires INTEGER NOT NULL,
+
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+      ON DELETE CASCADE
+);
