@@ -6,7 +6,7 @@ mod data;
 mod database;
 mod forward;
 
-use crate::{configuration::Configuration, forward::handle_login};
+use crate::{cli::handle_user_input, configuration::Configuration, forward::handle_login};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, middleware, web};
 use awc::{Client, cookie::Key};
@@ -40,6 +40,8 @@ async fn main() -> io::Result<()> {
     let pool = database::connect(sqlite_db)
         .await
         .expect("Unable to connect to database");
+
+    handle_user_input(pool.clone()).await;
 
     let forward_socket_addr = (target_host.to_string(), target_port)
         .to_socket_addrs()
