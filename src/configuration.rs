@@ -1,6 +1,7 @@
+use duration_str::deserialize_duration;
 use serde::{Deserialize, Deserializer};
 use sqlx::sqlite::SqliteConnectOptions;
-use std::{net::IpAddr, str::FromStr};
+use std::{net::IpAddr, str::FromStr, time::Duration};
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Configuration {
@@ -19,6 +20,10 @@ pub struct Configuration {
 
     /// Name of the cookie used to verify a user.
     pub cookie_name: Box<str>,
+
+    /// How long an authorsation token will be valid for.
+    #[serde(deserialize_with = "deserialize_duration")]
+    pub token_valid_for: Duration,
 }
 
 fn parse_sql_connection<'de, D>(data: D) -> Result<SqliteConnectOptions, D::Error>
@@ -40,6 +45,7 @@ impl Configuration {
             listen_port: 80,
             sqlite_db: options,
             cookie_name: "id".into(),
+            token_valid_for: Duration::from_secs(60 * 60),
         }
     }
 }

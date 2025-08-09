@@ -9,6 +9,10 @@ actix-web = { version = "4.11.0" }
 argon2 = { version = "0.5.3", features = ["std"] }
 awc = "3.7.0"
 config = "0.15.13"
+duration-str = { version = "0.17.0", default-features = false, features = [
+  "serde",
+  "calc",
+] }
 env_logger = "0.11.8"
 log = "0.4.27"
 rand = "0.9.2"

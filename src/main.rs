@@ -33,6 +33,7 @@ async fn main() -> io::Result<()> {
         listen_port,
         sqlite_db,
         cookie_name,
+        token_valid_for,
     } = config;
 
     let sqlite_db = sqlite_db.create_if_missing(true);
@@ -67,6 +68,7 @@ async fn main() -> io::Result<()> {
             .app_data(web::Data::new(Client::default()))
             .app_data(web::Data::new(forward_url.clone()))
             .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(token_valid_for.clone()))
             .wrap(middleware::Logger::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())

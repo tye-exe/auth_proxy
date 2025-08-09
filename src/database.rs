@@ -11,7 +11,6 @@ use rand::{
     Rng,
     distr::{Alphanumeric, SampleString},
 };
-use rand_chacha::ChaCha12Rng;
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 
 use crate::data::{AuthToken, Login};
@@ -180,7 +179,7 @@ pub async fn generate_token(
 
 /// Checks if the given [`AuthToken`] exists and has not expired.
 ///
-/// Any expired tokens will be removed.
+/// Any expired tokens will be removed from the database.
 pub async fn valid_token(pool: &SqlitePool, token: AuthToken) -> Result<bool, sqlx::Error> {
     delete_outdated_tokens(pool).await?;
 
@@ -229,7 +228,7 @@ async fn delete_outdated_tokens(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 mod tests {
     use super::*;
     use rand::SeedableRng;
-    use sqlx::sqlite::SqliteError;
+    use rand_chacha::ChaCha12Rng;
     use std::assert_matches::assert_matches;
 
     /// The first token generated when using `ChaCha12Rng::from_seed(Default::default())`

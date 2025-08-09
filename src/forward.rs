@@ -132,6 +132,7 @@ pub async fn handle_login(
     session: Session,
     form: web::Form<Login>,
     pool: web::Data<SqlitePool>,
+    token_valid_for: web::Data<Duration>,
     // For forwarding
     payload: web::Payload,
     peer_addr: Option<PeerAddr>,
@@ -150,7 +151,7 @@ pub async fn handle_login(
     let user_id = get_user(&pool, form.0).await.map(|user| user.id())?;
 
     let mut rng = ChaCha12Rng::from_os_rng();
-    let token = generate_token(&pool, &mut rng, user_id, Duration::from_secs(2000)).await?;
+    let token = generate_token(&pool, &mut rng, user_id, **token_valid_for).await?;
     session
         .insert(AUTH_TOKEN, token)
         .expect("Unable to seralise token");
@@ -364,7 +365,48 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn redirects_authenticated(pool: SqlitePool) {
+    async fn redirect_expired_token(pool: SqlitePool) {
+        database::add_user(&pool, "test", "abc").await.unwrap();
+
+        let p = pool.clone();
+        let app = crate::get_app_duration!(p, Duration::default());
+        let app = init_service(app()).await;
+
+        // Exit early in case of unexpected
+        let request = TestRequest::get().peer_addr(PEER_ADDR).to_request();
+        let response = call_service(&app, request).await;
+        assert_eq!(response.status(), 200);
+
+        let request = TestRequest::post()
+            .uri("/login")
+            .set_form(Login::new("test", "abc"))
+            .peer_addr(PEER_ADDR)
+            .cookie(
+                response
+                    .response()
+                    .cookies()
+                    .next()
+                    .expect("One cookie exists"),
+            )
+            .to_request();
+        let response = call_service(&app, request).await;
+
+        assert_eq!(response.status().as_u16(), 303);
+
+        let request = TestRequest::get().peer_addr(PEER_ADDR).to_request();
+        let response = call_service(&app, request).await;
+        assert_eq!(response.status(), 200);
+
+        let body = response.into_body();
+        let bytes = body::to_bytes(body)
+            .await
+            .expect("Able to get body content");
+
+        assert_eq!(bytes, web::Bytes::from_static(LOGIN.as_bytes()));
+    }
+
+    #[sqlx::test]
+    async fn forwards_authenticated(pool: SqlitePool) {
         // Run the test on a local task.
         // Wiremock requires it.
         tokio::task::LocalSet::new()
@@ -386,7 +428,7 @@ mod tests {
                     database::add_user(&pool, "test", "abc").await.unwrap();
 
                     let p = pool.clone();
-                    let app = crate::get_app!(p, &mock_server.uri());
+                    let app = crate::get_app_url!(p, &mock_server.uri());
                     let app = init_service(app()).await;
 
                     // Exit early in case of unexpected
@@ -446,6 +488,83 @@ mod tests {
             .await;
     }
 
+    #[sqlx::test]
+    async fn login_forwards_authenticated(pool: SqlitePool) {
+        // Run the test on a local task.
+        // Wiremock requires it.
+        tokio::task::LocalSet::new()
+            .run_until(async move {
+                // `spawn_local` ensures that the future is spawned on the local
+                // task set.
+                tokio::task::spawn_local(async move {
+                    use wiremock::matchers::{method, path};
+                    let mock_server = MockServer::start().await;
+
+                    Mock::given(method("POST"))
+                        .and(path("/login"))
+                        .respond_with(ResponseTemplate::new(200).set_body_string("You did it!"))
+                        .mount(&mock_server)
+                        .await;
+
+                    let login = Login::new("test", "abc");
+
+                    database::add_user(&pool, "test", "abc").await.unwrap();
+
+                    let p = pool.clone();
+                    let app = crate::get_app_url!(p, &mock_server.uri());
+                    let app = init_service(app()).await;
+
+                    // Exit early in case of unexpected
+                    let request = TestRequest::get().peer_addr(PEER_ADDR).to_request();
+                    let response = call_service(&app, request).await;
+                    assert_eq!(response.status(), 200);
+
+                    // Authenticate
+                    let request = TestRequest::post()
+                        .uri("/login")
+                        .set_form(login.clone())
+                        .peer_addr(PEER_ADDR)
+                        .cookie(
+                            response
+                                .response()
+                                .cookies()
+                                .next()
+                                .expect("One cookie exists"),
+                        )
+                        .to_request();
+                    let response = call_service(&app, request).await;
+                    assert_matches!(response.status().as_u16(), 303);
+
+                    // Test request while authenticated
+                    let request = TestRequest::post()
+                        .uri("/login")
+                        .set_form(login)
+                        .peer_addr(PEER_ADDR)
+                        .cookie(
+                            response
+                                .response()
+                                .cookies()
+                                .next()
+                                .expect("One cookie exists"),
+                        )
+                        .to_request();
+
+                    let response = call_service(&app, request).await;
+                    assert_eq!(response.status(), 200);
+
+                    let body = response.into_body();
+                    let bytes = body::to_bytes(body)
+                        .await
+                        .expect("Able to get body content");
+
+                    assert_eq!(bytes, web::Bytes::from_static(b"You did it!"));
+                })
+                .await
+                .unwrap();
+            })
+            .await;
+    }
+
     /// Creates the [`App`] used for testing.
     ///
     /// This is a macro due to:
@@ -453,7 +572,7 @@ mod tests {
     /// - The returned [`App`] needing to be a type of closure.
     #[macro_export]
     macro_rules! get_app {
-        ($pool:expr, $url:expr) => {{
+        ($pool:expr, $url:expr, $duration:expr) => {{
             #[cfg(not(test))]
             compile_error!(
                 "'get_app!' is only to be used in testing, as it DOES NOT store cookie data securely."
@@ -470,6 +589,7 @@ mod tests {
                     .app_data(web::Data::new(Client::default()))
                     .app_data(web::Data::new(url.clone()))
                     .app_data(web::Data::new($pool.clone()))
+                    .app_data(web::Data::new($duration.clone()))
                     // .wrap(middleware::Logger::default())
                     .wrap(
                         SessionMiddleware::builder(
@@ -488,6 +608,26 @@ mod tests {
                     .default_service(web::to(crate::forward::catch_all))
             }
         }};
-        ($pool:expr) => {{ crate::get_app!($pool, "http://example.com") }};
+        ($pool:expr) => {{ crate::get_app!($pool, "http://example.com", std::time::Duration::from_secs(3000)) }};
+    }
+
+    /// Creates the [`App`] used for testing.
+    ///
+    /// This is a macro due to:
+    /// - The type of [`App`] being heavily dependent on functions executed while configuring it.
+    /// - The returned [`App`] needing to be a type of closure.
+    #[macro_export]
+    macro_rules! get_app_url {
+        ($pool:expr, $url:expr) => {{ crate::get_app!($pool, $url, std::time::Duration::from_secs(3000)) }};
+    }
+
+    /// Creates the [`App`] used for testing.
+    ///
+    /// This is a macro due to:
+    /// - The type of [`App`] being heavily dependent on functions executed while configuring it.
+    /// - The returned [`App`] needing to be a type of closure.
+    #[macro_export]
+    macro_rules! get_app_duration {
+        ($pool:expr, $duration:expr) => {{ crate::get_app!($pool, "http://example.com", $duration) }};
     }
 }
