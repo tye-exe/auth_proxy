@@ -18,7 +18,7 @@ impl<T: Into<String>> From<T> for AuthToken {
 }
 
 /// The login details sent by the client.
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Login {
     username: Box<str>,
     password: Box<str>,
@@ -59,6 +59,11 @@ impl UserState {
 
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    pub fn set_stage(mut self, stage: Stage) -> Self {
+        self.stage = stage;
+        self
     }
 }
 

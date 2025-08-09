@@ -77,7 +77,7 @@ async fn main() -> io::Result<()> {
                     .build(),
             )
             .service(handle_login)
-            .default_service(web::to(crate::forward::forward))
+            .default_service(web::to(crate::forward::catch_all))
     })
     .bind((listen_on, listen_port))?
     .workers(2)
