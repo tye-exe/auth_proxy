@@ -229,7 +229,6 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand_chacha::ChaCha12Rng;
-    use std::assert_matches::assert_matches;
 
     /// The first token generated when using `ChaCha12Rng::from_seed(Default::default())`
     const FIRST_TOKEN: &str = "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";
@@ -259,7 +258,7 @@ mod tests {
             .expect("Able to add user to database");
 
         let get_user = get_user(&pool, Login::new("bad", "abced")).await;
-        assert_matches!(get_user, Err(GetUserError::NonExistent));
+        assert!(matches!(get_user, Err(GetUserError::NonExistent)));
     }
 
     #[sqlx::test]
@@ -269,7 +268,7 @@ mod tests {
             .expect("Able to add user to database");
 
         let get_user = get_user(&pool, Login::new("test_user", "wrong")).await;
-        assert_matches!(get_user, Err(GetUserError::NonExistent));
+        assert!(matches!(get_user, Err(GetUserError::NonExistent)));
     }
 
     #[sqlx::test]
@@ -319,7 +318,9 @@ mod tests {
             generate_token(&pool, &mut rng, user.id(), Duration::from_secs(1000)).await;
 
         // TODO: Prevent this error in the future.
-        assert_matches!(generate_token, Err(sqlx::Error::Database(err)) if err.code() == Some(std::borrow::Cow::Borrowed("2067")))
+        assert!(
+            matches!(generate_token, Err(sqlx::Error::Database(err)) if err.code() == Some(std::borrow::Cow::Borrowed("2067")))
+        )
     }
 
     #[sqlx::test]

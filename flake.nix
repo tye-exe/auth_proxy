@@ -20,12 +20,9 @@
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
 
-        rust-build = pkgs.rust-bin.selectLatestNightlyWith (
-          toolchain:
-          toolchain.default.override {
-            extensions = [ "rust-src" ];
-          }
-        );
+        rust-build = pkgs.rust-bin.stable.latest.default.override {
+          extensions = [ "rust-src" ];
+        };
       in
       {
         devShells.default =

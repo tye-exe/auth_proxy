@@ -1,5 +1,3 @@
-#![feature(assert_matches)]
-
 mod cli;
 mod configuration;
 mod data;

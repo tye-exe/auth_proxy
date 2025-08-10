@@ -195,10 +195,7 @@ pub async fn handle_login(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        assert_matches::assert_matches,
-        net::{Ipv4Addr, SocketAddr},
-    };
+    use std::net::{Ipv4Addr, SocketAddr};
 
     use super::*;
     use crate::database::{self};
@@ -550,7 +547,7 @@ mod tests {
                         )
                         .to_request();
                     let response = call_service(&app, request).await;
-                    assert_matches!(response.status().as_u16(), 303);
+                    assert_eq!(response.status().as_u16(), 303);
 
                     // Test request while authenticated
                     let request = TestRequest::post()
