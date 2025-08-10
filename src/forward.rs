@@ -12,7 +12,7 @@ use actix_web::{
     post,
     web::{self, Redirect},
 };
-use awc::{Client, error::SendRequestError, http::StatusCode};
+use awc::{Client, body::BoxBody, error::SendRequestError, http::StatusCode};
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha12Rng;
 use sqlx::SqlitePool;
@@ -47,6 +47,25 @@ impl actix_web::error::ResponseError for Error {
             Error::InvalidLogin => StatusCode::UNAUTHORIZED,
             Error::UpstreamError(_) => StatusCode::BAD_GATEWAY,
         }
+    }
+
+    fn error_response(&self) -> HttpResponse<awc::body::BoxBody> {
+        let res = HttpResponse::new(self.status_code());
+
+        let body = match &self {
+            Error::Database(error) => {
+                log::error!("Database Error: {error}");
+                "An error occurred, please notify the site admin"
+            }
+            Error::InvalidLogin => {
+                "<!DOCTYPE html><html><body>Login details are invalid / expired. Please try again. <a href=\"/\">try again</a><body></html>"
+            }
+            Error::UpstreamError(send_request_error) => {
+                log::error!("Unable to connect to upstream: {send_request_error}");
+                "An error occurred, please notify the site admin"
+            }
+        };
+        res.set_body(BoxBody::new(body))
     }
 }
 

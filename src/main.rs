@@ -74,6 +74,7 @@ async fn main() -> io::Result<()> {
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .cookie_content_security(actix_session::config::CookieContentSecurity::Private)
                     .cookie_http_only(true)
+                    .cookie_secure(true)
                     .cookie_same_site(awc::cookie::SameSite::Strict)
                     .cookie_name(cookie_name.to_string())
                     .build(),
