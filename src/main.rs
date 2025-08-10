@@ -8,7 +8,7 @@ use crate::{cli::handle_user_input, configuration::Configuration, forward::handl
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, middleware, web};
 use awc::{Client, cookie::Key};
-use std::{io, net::ToSocketAddrs as _};
+use std::{io, net::ToSocketAddrs as _, path::Path};
 use url::Url;
 
 const LOGIN: &str = include_str!("../pages/login.html");
@@ -17,8 +17,15 @@ const LOGIN: &str = include_str!("../pages/login.html");
 async fn main() -> io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
+    // Read path to configuration file if present
+    let config_path = std::env::args()
+        .nth(1)
+        .and_then(|file| Path::new(&file).canonicalize().ok())
+        .and_then(|path| path.to_str().map(ToString::to_string))
+        .unwrap_or("./configuration.toml".to_string());
+
     let config: Configuration = config::Config::builder()
-        .add_source(config::File::with_name("./configuration.toml"))
+        .add_source(config::File::with_name(&config_path))
         .add_source(config::Environment::with_prefix("AUTH"))
         .build()
         .and_then(|config| config.try_deserialize())
