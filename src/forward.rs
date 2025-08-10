@@ -139,8 +139,6 @@ pub async fn handle_login(
     forward_to: web::Data<Url>,
     client: web::Data<Client>,
 ) -> Result<HttpResponse, Error> {
-    dbg!("Login: {}", &session.entries());
-
     if let Some(token) = session.get(AUTH_TOKEN).expect("Able to deseralise token") {
         return forward(
             req, token, payload, peer_addr, forward_to, client, pool, session,

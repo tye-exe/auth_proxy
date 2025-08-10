@@ -35,11 +35,9 @@ pub async fn handle_user_input(pool: SqlitePool) -> () {
                         continue;
                     };
 
-                    eprintln!("Entered: {} {}", identity.as_str(), password.as_str());
-
                     match database::add_user(&pool, &identity, &password).await {
                         Ok(_) => {
-                            println!("User added successfully")
+                            eprintln!("User added successfully")
                         }
                         Err(err) => {
                             error!("Unable to add user: {err}")
@@ -47,7 +45,7 @@ pub async fn handle_user_input(pool: SqlitePool) -> () {
                     };
                 }
                 ["help"] | _ => {
-                    println!("{}", HELP_TEXT)
+                    eprintln!("{}", HELP_TEXT)
                 }
             }
         }
