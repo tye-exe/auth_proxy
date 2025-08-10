@@ -1,0 +1,35 @@
+# The address to forward authenticated requests to.
+# This can be any URL (excluding the "http://").
+#
+# This address SHOULD NOT be accessible without connecting through this proxy,
+# otherwise people can connect without authenticating.
+target_host = "0.0.0.0"
+# The port to forwartd requests on.
+target_port = 8080
+
+# The address to listen to incoming connections on.
+# This can be IPV4 or IPV6
+listen_on = "0.0.0.0"
+# The port to listening for incoming connections on.
+listen_port = 8888
+
+# The file path to the sqlite3 database used to store user data. The path can be absolute or relative.
+# If the database does not exist, a new one will be created.
+# It is recommended to restrict access (e.g with file permissions) for security.
+sqlite_db = "users.sqlite3"
+
+# The name of the cookie used to store authorisation tokens on the client.
+# This data is encrypted and signed so it cannot be tampered with.
+#
+# This cookie must not share the same name as ANY cookies used by the backend service.
+# Aside from that, it can be anything.
+cookie_name = "id"
+
+# For information on valid duration formats see: https://docs.rs/duration-str/0.17.0/duration_str/index.html
+#
+# For a brief summary:
+# - "h" for hours
+# - "m" for minutes
+# - "s" for seconds
+# These can be arranged in any order.
+token_valid_for = "60m"

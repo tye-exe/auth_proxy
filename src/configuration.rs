@@ -49,3 +49,19 @@ impl Configuration {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use config::Config;
+
+    use super::*;
+
+    #[test]
+    fn parse_example() {
+        let config: Configuration = Config::builder()
+            .add_source(config::File::with_name("./configuration.toml"))
+            .build()
+            .and_then(Config::try_deserialize)
+            .unwrap();
+    }
+}

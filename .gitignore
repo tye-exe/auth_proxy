@@ -2,3 +2,6 @@
 
 # Development testing
 database.sqlite3
+
+# Example config database
+users.sqlite3
