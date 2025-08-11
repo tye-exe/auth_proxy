@@ -4,7 +4,7 @@ use crate::{
     cli::async_read::{from_tty, from_tty_hidden},
     database,
 };
-use log::error;
+use log::{error, trace, warn};
 use sqlx::SqlitePool;
 use zeroize::Zeroizing;
 
@@ -15,41 +15,50 @@ Help:
 "#;
 
 /// Handles the user input from the terminal.
-pub async fn handle_user_input(pool: SqlitePool) -> () {
+pub async fn handle_user_input(pool: SqlitePool) {
     tokio::spawn(async move {
         loop {
-            let input = from_tty().await.unwrap();
-
-            match input
-                .to_lowercase()
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .as_slice()
-            {
-                ["user", "add"] => {
-                    eprint!("Identity: ");
-                    let identity = from_tty().await.unwrap();
-
-                    let Ok(password) = get_password().await else {
-                        eprintln!("Exiting");
-                        continue;
-                    };
-
-                    match database::add_user(&pool, &identity, &password).await {
-                        Ok(_) => {
-                            eprintln!("User added successfully")
-                        }
-                        Err(err) => {
-                            error!("Unable to add user: {err}")
-                        }
-                    };
-                }
-                ["help"] | _ => {
-                    eprintln!("{}", HELP_TEXT)
-                }
+            if let Err(err) = input(&pool).await {
+                warn!("Terminal not available, you will be unable to add users.");
+                warn!("If you are using docker add the '-it' flags.");
+                trace!("Error: {err}");
+                return;
             }
         }
     });
+}
+
+/// Process input
+async fn input(pool: &sqlx::Pool<sqlx::Sqlite>) -> Result<(), std::io::Error> {
+    let input = from_tty().await?;
+
+    match input
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        ["user", "add"] => {
+            eprint!("Identity: ");
+            let identity = from_tty().await?;
+
+            let password = get_password().await?;
+
+            match database::add_user(pool, &identity, &password).await {
+                Ok(_) => {
+                    eprintln!("User added successfully")
+                }
+                Err(err) => {
+                    error!("Unable to add user: {err}")
+                }
+            };
+        }
+        ["help"] | _ => {
+            eprintln!("{}", HELP_TEXT)
+        }
+    }
+
+    Ok(())
 }
 
 /// Prompts the user to enter a password.
